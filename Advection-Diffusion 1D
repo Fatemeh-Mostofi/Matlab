@@ -1,0 +1,278 @@
+% Advection-Diffusion equation-1d
+% Constant temperatures at boundaries
+% Tt + u*Tx = alpha*Txx
+% Crank Nicolson Method
+% A*T_n+1 = B*T_n + 2*d*BC - C
+
+clear vars
+clear plots
+clf
+clear
+clc
+
+% Inputs
+alpha = 0.01; % Thermal diffusivity
+u = 0.1; % Velocity in x direction
+t = 100; % Total time 
+nt = 100; % Total number of time steps
+delta_t = t/nt % Time steps
+xlength = 1; % X length
+L = xlength;
+ylength = 1; % ylength for graphic's purpose
+nx = 100; % Total number of spacial grids along x direction
+ny = 1; % Total number of spacial grids along y direction(for graphic purpose)
+delta_x = xlength/nx %delta_x=delta_y
+delta_y = ylength/ny %delta_y=delta_x (for graphic purpose)
+Tend1 = 0; % Temperature at x=0 (boundary condition)
+Tend2 = 100; %Temperature at x=1 (boundary condition)
+Tin = 100*delta_x; %linear
+wait_time = 2;
+
+%Solution
+n = nx-1; % Number of interior nodes
+c = u*delta_t/delta_x %convection number
+d = alpha * delta_t / delta_x^2 % diffusion number
+Pe = u*L/alpha %Peclet number
+
+x(1) = 0;
+for i = 1:n+2
+    x(i) = x(1) + (i-1)*delta_x;
+end
+x;
+
+%creating initial and boundary condition
+
+for k = 1:1
+    for i = 1:n
+        IC(i,k) = 100*x(i+1)/L;
+    end
+end
+IC'
+
+for k = 1:1
+    for i = 1:n
+        if i == 1
+            BC(i,k) = ((c/2) +d)* Tend1;
+        elseif i == n
+            BC(i,k) = (-(c/2) +d)* Tend2;
+        else
+            BC(i,k) = 0;
+        end
+    end
+end
+
+BC;
+
+%Creating B matrix
+
+B = zeros(n,n);
+
+for i = 1:n
+    for j = 1:n
+        if i == j
+            B(i,j)= 2*(1 - d);
+        elseif (i == j+1)
+            B(i,j) = ((c/2) + d);
+        elseif (i == j-1)
+            B(i,j) = (-(c/2) + d);
+        else
+            B(i,j) = 0;
+        end
+    end
+end
+
+B
+
+C = B*IC + 2*BC
+
+
+
+
+
+
+
+
+
+
+
+% Creating A matrix
+
+
+
+A = zeros(n,n);
+
+for i = 1:n
+    for j = 1:n
+        if i == j
+            A(i,j) = 2*(1 + d);
+        elseif (i == j+1)
+            A(i,j) = -((c/2) + d);
+        elseif (i == j-1)
+            A(i,j) = ((c/2) - d);
+        else
+            A(i,j) = 0;
+        end
+    end
+end
+
+A;
+
+Talt = A\C;
+
+
+% Algorithm for utilizing Thomas Algorithm
+
+for i = 1:n
+    dA(i) = 2* (1+d);
+    if (i < n)
+        uA(i) = ((c/2) - d);
+    else
+        uA(i) = 0;
+    end
+    
+    if (i>1)
+        lA(i) = -((c/2) + d);
+    else
+        lA(i) = 0;
+    end
+end
+
+uA;
+dA;
+lA;
+
+
+% Creating T vector
+
+
+for i = 1:n
+    T1(i, 1:ny+1 ,1) = 100*x(i+1)/L;
+end
+
+
+for k = 2:nt+1
+    
+    T = Thomas_Algorithm_Func1(dA,lA,uA,C);
+    T = T';
+    for j = 1:ny+1
+        T1(:,j,k) = T;
+    end
+    C = B*T + 2*BC;
+end
+
+T1;
+n;
+
+
+
+T2 = zeros(n+2,ny+1,nt+1);
+T2(1,:,:) = Tend1;
+T2(n+2,:,:) = Tend2;
+T2(2:n+1,:,:) = T1;
+
+
+% Exact analytical solution at dteady state
+T_Exact = zeros(nx+1,1);
+for i = 1:nx+1
+    T_Exact(i) = 100 * (exp((Pe*x(i)/L))-1)/(exp(Pe)-1);
+end
+T_Exact;
+
+Diff = T_Exact - T2(:,1,nt+1);
+
+
+%
+
+% Temperature Profile
+
+subplot(1,2,1)
+
+%Initial Temperature Profile
+T3 = T2(:,:,1);
+subplot(2,2,1)
+T3 = rot90(T3);
+x = 0:delta_x:xlength;
+y = 0:delta_y:ylength;
+imagesc(x,y,T3)
+colorbar;
+title (['Temperature Profile -','T in deg.C','@ time(0) = ',num2str(0),'s'])
+xlabel (['x in m'])
+set(gca,'ytick',[])
+
+%Final Temperature Profile
+T4 = T2(:,:,nt+1);
+subplot(2,2,3)
+T4 = rot90(T4);
+x = 0:delta_x:xlength;
+y = 0:delta_y:ylength;
+imagesc(x,y,T4)
+colorbar;
+title (['Temperature Profile -','T in deg.C','@ time(t) = ',num2str(t),'s'])
+xlabel (['x in m'])
+set(gca,'ytick',[])
+
+
+%Temperature Profile 
+T5 = T2(:,:,1)';
+[x,y] = meshgrid(0:delta_x:xlength,0:delta_y:ylength);
+x;
+y;
+
+
+for k = 1:nt+1
+    subplot(1,2,2)
+    colorbar;
+    h=surf(x,y,T5,'EdgeColor','none');
+    shading interp
+    % axis ([0 xlength 0 ylength 0 Tmax]);
+    title(['1D - Advection - Diffusion Equation'],['time (\itt) = ',num2str((k-1)*delta_t), 's'])
+    colorbar;
+    drawnow;
+    pause(0.001);
+    refreshdata(h);
+    if k == nt+1
+         T5 = T2(:,:,k+1)';
+    else
+         break;
+    end
+end
+
+
+
+%}
+
+
+
+% Temperature profile  Final
+
+plot(x,T_Exact,x,T2(:,1,nt+1))
+grid on
+% axis ([0 l 0 Tmax])
+title(['1D - Advection - Diffusion Equation - Temperature Profile - Exact and CN Method','T in ded.C','@time(t)=',num2str(t),'s'])
+xlabel('x in cm')
+ylabel('Temp in (deg.C)')
+legend('T-Exact','T-CN')
+
+% Thomas_Algorithm_Func1(dA,lA,uA,C)
+
+function x = Thomas_Algorithm_Func1(d,l,u,b)
+n = length(b); %length of vector C
+u(n) = 0;
+d = d';
+l = l';
+u = u';
+new = [l d u];
+
+for i = 2:n
+    d(i) = d(i) - (l(i)/d(i-1))* u(i-1);
+    b(i) = b(i) - (l(i)/d(i-1))*b(i-1);
+end
+x(n) = b(n)/d(n);
+
+for k = 1:n-1
+    i = n-k;
+    x(i) = (b(i)-u(i)* x(i+1))/d(i);
+end
+end
+
+ 
